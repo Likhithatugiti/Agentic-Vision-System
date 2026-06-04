@@ -6,9 +6,8 @@ fastapi>=0.111.0
 uvicorn[standard]>=0.29.0
 python-multipart>=0.0.9
 
-# Computer Vision
-opencv-python>=4.9.0
-ultralytics>=8.2.0        # YOLOv8 — downloads yolov8n.pt on first run (~6 MB)
+# Computer Vision (headless — no display libs, free-tier safe)
+opencv-python-headless>=4.9.0
 
 # Multi-agent orchestration
 langgraph>=0.1.0

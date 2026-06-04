@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Agentic Vision System</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:       #0a0a0b;
+    --bg2:      #111113;
+    --bg3:      #18181c;
+    --border:   #27272d;
+    --text:     #e8e8ec;
+    --muted:    #6b6b75;
+    --accent:   #5b8af5;
+    --green:    #3ecf8e;
+    --yellow:   #f5a623;
+    --orange:   #f5712a;
+    --red:      #f54b4b;
+    --mono:     'IBM Plex Mono', monospace;
+    --sans:     'IBM Plex Sans', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; overflow-x: hidden; }
+
+  /* ── Header ── */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px; height: 52px;
+    background: var(--bg2); border-bottom: 1px solid var(--border);
+  }
+  .logo { font-family: var(--mono); font-size: 13px; font-weight: 600; letter-spacing: 0.08em; color: var(--text); }
+  .logo span { color: var(--accent); }
+  .status-pill {
+    display: flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 11px; color: var(--muted);
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+  .dot.live { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  /* ── Layout ── */
+  .layout { display: grid; grid-template-columns: 1fr 360px; height: calc(100vh - 52px); }
+
+  /* ── Left panel ── */
+  .left { display: flex; flex-direction: column; border-right: 1px solid var(--border); }
+
+  /* Video area */
+  .video-wrap {
+    position: relative; flex: 1; background: #000;
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+  }
+  #videoEl { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #canvasEl { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+  .video-placeholder {
+    text-align: center; color: var(--muted);
+    font-family: var(--mono); font-size: 12px; line-height: 2;
+  }
+  .video-placeholder .icon { font-size: 36px; margin-bottom: 8px; opacity: .4; }
+
+  /* Controls bar */
+  .controls {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px; background: var(--bg2); border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .btn {
+    font-family: var(--mono); font-size: 12px; font-weight: 500;
+    padding: 7px 16px; border-radius: 4px; border: 1px solid var(--border);
+    cursor: pointer; transition: all .15s; background: var(--bg3); color: var(--text);
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { opacity: .85; }
+  .btn.danger { border-color: var(--red); color: var(--red); }
+  .btn.danger:hover { background: var(--red); color: #fff; }
+  .btn:disabled { opacity: .35; cursor: not-allowed; }
+
+  label.upload-btn {
+    font-family: var(--mono); font-size: 12px; font-weight: 500;
+    padding: 7px 16px; border-radius: 4px; border: 1px solid var(--border);
+    cursor: pointer; transition: all .15s; background: var(--bg3); color: var(--text);
+  }
+  label.upload-btn:hover { border-color: var(--accent); color: var(--accent); }
+  #fileInput { display: none; }
+
+  /* Stats row */
+  .stats-row {
+    display: flex; gap: 0;
+    border-top: 1px solid var(--border); background: var(--bg2);
+  }
+  .stat {
+    flex: 1; padding: 10px 14px; border-right: 1px solid var(--border);
+    text-align: center;
+  }
+  .stat:last-child { border-right: none; }
+  .stat-val { font-family: var(--mono); font-size: 20px; font-weight: 600; color: var(--text); }
+  .stat-label { font-size: 10px; color: var(--muted); margin-top: 2px; letter-spacing: .06em; text-transform: uppercase; }
+
+  /* ── Right panel ── */
+  .right { display: flex; flex-direction: column; background: var(--bg2); overflow: hidden; }
+
+  /* Pipeline visualiser */
+  .pipeline-header {
+    padding: 14px 16px 10px;
+    font-family: var(--mono); font-size: 11px; color: var(--muted);
+    letter-spacing: .08em; text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .pipeline { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+  .pipeline-nodes { display: flex; align-items: center; gap: 0; }
+  .node {
+    flex: 1; text-align: center; padding: 8px 4px;
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 4px;
+    font-family: var(--mono); font-size: 10px; color: var(--muted);
+    transition: all .2s;
+  }
+  .node.active { border-color: var(--accent); color: var(--accent); background: rgba(91,138,245,.08); }
+  .node.done { border-color: var(--green); color: var(--green); background: rgba(62,207,142,.06); }
+  .node-name { font-weight: 600; font-size: 9px; letter-spacing: .06em; }
+  .node-ms { font-size: 9px; margin-top: 2px; opacity: .7; }
+  .arrow { color: var(--border); font-size: 14px; padding: 0 2px; flex-shrink: 0; }
+
+  /* Current detection */
+  .detect-section { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+  .section-title { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 10px; }
+  .detect-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .detect-chip {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 3px;
+    padding: 5px 8px; font-family: var(--mono); font-size: 11px;
+  }
+  .detect-chip .cls { color: var(--text); }
+  .detect-chip .conf { color: var(--muted); }
+  .no-detect { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+  /* Alert feed */
+  .feed-header {
+    padding: 12px 16px 8px;
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid var(--border);
+  }
+  .feed-title { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+  .feed-clear { font-family: var(--mono); font-size: 10px; color: var(--muted); cursor: pointer; background: none; border: none; }
+  .feed-clear:hover { color: var(--red); }
+  .feed { flex: 1; overflow-y: auto; padding: 8px; }
+  .feed::-webkit-scrollbar { width: 4px; }
+  .feed::-webkit-scrollbar-track { background: transparent; }
+  .feed::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .alert-card {
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 4px;
+    padding: 10px 12px; margin-bottom: 6px;
+    border-left: 3px solid var(--border);
+    animation: slideIn .2s ease;
+  }
+  @keyframes slideIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
+  .alert-card.LOW      { border-left-color: var(--green); }
+  .alert-card.MEDIUM   { border-left-color: var(--yellow); }
+  .alert-card.HIGH     { border-left-color: var(--orange); }
+  .alert-card.CRITICAL { border-left-color: var(--red); }
+
+  .alert-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+  .alert-sev {
+    font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: .06em;
+    padding: 2px 6px; border-radius: 3px;
+  }
+  .sev-LOW      { background: rgba(62,207,142,.15); color: var(--green); }
+  .sev-MEDIUM   { background: rgba(245,166,35,.15);  color: var(--yellow); }
+  .sev-HIGH     { background: rgba(245,113,42,.15);  color: var(--orange); }
+  .sev-CRITICAL { background: rgba(245,75,75,.15);   color: var(--red); }
+
+  .alert-time { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+  .alert-desc { font-size: 12px; color: var(--text); margin-bottom: 6px; line-height: 1.4; }
+  .alert-meta { display: flex; gap: 8px; flex-wrap: wrap; }
+  .alert-tag {
+    font-family: var(--mono); font-size: 10px; color: var(--muted);
+    background: var(--bg2); border: 1px solid var(--border);
+    padding: 2px 6px; border-radius: 3px;
+  }
+
+  .empty-feed { text-align: center; padding: 40px 16px; color: var(--muted); font-family: var(--mono); font-size: 11px; line-height: 2; }
+
+  /* Overlay alert flash */
+  #alertFlash {
+    position: fixed; top: 64px; right: 16px; z-index: 100;
+    font-family: var(--mono); font-size: 12px; font-weight: 600;
+    padding: 10px 18px; border-radius: 4px;
+    opacity: 0; transition: opacity .2s;
+    pointer-events: none;
+  }
+  #alertFlash.show { opacity: 1; }
+  #alertFlash.CRITICAL { background: var(--red); color: #fff; }
+  #alertFlash.HIGH     { background: var(--orange); color: #fff; }
+  #alertFlash.MEDIUM   { background: var(--yellow); color: #000; }
+  #alertFlash.LOW      { background: var(--green); color: #000; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">AVS / <span>AGENTIC VISION SYSTEM</span></div>
+  <div class="status-pill">
+    <div class="dot" id="statusDot"></div>
+    <span id="statusText">IDLE</span>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- LEFT -->
+  <div class="left">
+    <div class="video-wrap">
+      <video id="videoEl" autoplay muted playsinline style="display:none"></video>
+      <canvas id="canvasEl"></canvas>
+      <div class="video-placeholder" id="placeholder">
+        <div class="icon">⬡</div>
+        Start webcam or upload an image<br>to begin detection
+      </div>
+      <img id="uploadPreview" style="display:none; max-width:100%; max-height:100%; object-fit:contain;"/>
+    </div>
+
+    <div class="controls">
+      <button class="btn primary" id="btnCam">Start Webcam</button>
+      <label class="upload-btn">Upload Image <input type="file" id="fileInput" accept="image/*"/></label>
+      <button class="btn danger" id="btnStop" disabled>Stop</button>
+      <span style="flex:1"></span>
+      <span style="font-family:var(--mono);font-size:11px;color:var(--muted)" id="fpsLabel">— fps</span>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat"><div class="stat-val" id="statFrames">0</div><div class="stat-label">Frames</div></div>
+      <div class="stat"><div class="stat-val" id="statAlerts">0</div><div class="stat-label">Alerts</div></div>
+      <div class="stat"><div class="stat-val" id="statObjects">0</div><div class="stat-label">Objects</div></div>
+      <div class="stat"><div class="stat-val" id="statLatency">—</div><div class="stat-label">ms / frame</div></div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="right">
+    <!-- Pipeline -->
+    <div class="pipeline-header">
+      <span>Agent Pipeline</span>
+      <span id="pipelineStatus" style="color:var(--green);font-size:10px;"></span>
+    </div>
+    <div class="pipeline">
+      <div class="pipeline-nodes">
+        <div class="node" id="nodeDetector"><div class="node-name">DETECTOR</div><div class="node-ms" id="msDetector">—</div></div>
+        <div class="arrow">›</div>
+        <div class="node" id="nodeAnalyser"><div class="node-name">ANALYSER</div><div class="node-ms" id="msAnalyser">—</div></div>
+        <div class="arrow">›</div>
+        <div class="node" id="nodeDecider"><div class="node-name">DECIDER</div><div class="node-ms" id="msDecider">—</div></div>
+        <div class="arrow">›</div>
+        <div class="node" id="nodeLogger"><div class="node-name">LOGGER</div><div class="node-ms" id="msLogger">—</div></div>
+      </div>
+    </div>
+
+    <!-- Current detections -->
+    <div class="detect-section">
+      <div class="section-title">Current Detections</div>
+      <div id="detectGrid" class="detect-grid">
+        <div class="no-detect">No detections yet</div>
+      </div>
+    </div>
+
+    <!-- Alert feed -->
+    <div class="feed-header">
+      <div class="feed-title">Alert Feed</div>
+      <button class="feed-clear" id="btnClearAlerts">CLEAR</button>
+    </div>
+    <div class="feed" id="alertFeed">
+      <div class="empty-feed">No alerts triggered yet.<br>Start webcam to begin monitoring.</div>
+    </div>
+  </div>
+</div>
+
+<div id="alertFlash"></div>
+
+<script>
+const API = window.location.origin;
+let ws = null;
+let stream = null;
+let frameCount = 0;
+let alertCount = 0;
+let capturing = false;
+let lastFpsTime = Date.now();
+let fpsFrames = 0;
+
+const videoEl       = document.getElementById('videoEl');
+const canvasEl      = document.getElementById('canvasEl');
+const ctx2d         = canvasEl.getContext('2d');
+const placeholder   = document.getElementById('placeholder');
+const uploadPreview = document.getElementById('uploadPreview');
+const btnCam        = document.getElementById('btnCam');
+const btnStop       = document.getElementById('btnStop');
+const fileInput     = document.getElementById('fileInput');
+const statusDot     = document.getElementById('statusDot');
+const statusText    = document.getElementById('statusText');
+const alertFeed     = document.getElementById('alertFeed');
+const alertFlash    = document.getElementById('alertFlash');
+
+// ── Webcam ──────────────────────────────────────────────────────────────────
+btnCam.addEventListener('click', async () => {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { width:640, height:480 } });
+    videoEl.srcObject = stream;
+    videoEl.style.display = 'block';
+    placeholder.style.display = 'none';
+    uploadPreview.style.display = 'none';
+    await videoEl.play();
+    canvasEl.width  = videoEl.videoWidth  || 640;
+    canvasEl.height = videoEl.videoHeight || 480;
+    setStatus('LIVE', true);
+    btnCam.disabled = true;
+    btnStop.disabled = false;
+    openWS();
+    capturing = true;
+    requestAnimationFrame(captureLoop);
+  } catch(e) {
+    alert('Camera access denied or unavailable: ' + e.message);
+  }
+});
+
+btnStop.addEventListener('click', stopAll);
+
+function stopAll() {
+  capturing = false;
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  if (ws) { ws.close(); ws = null; }
+  videoEl.style.display = 'none';
+  setStatus('IDLE', false);
+  btnCam.disabled = false;
+  btnStop.disabled = true;
+}
+
+// ── WebSocket ───────────────────────────────────────────────────────────────
+function openWS() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws/stream`);
+  ws.onopen    = () => console.log('WS connected');
+  ws.onmessage = e => handleResult(JSON.parse(e.data));
+  ws.onerror   = () => setStatus('WS ERROR', false);
+  ws.onclose   = () => { if (capturing) setTimeout(openWS, 1000); };
+}
+
+// ── Capture loop ─────────────────────────────────────────────────────────────
+function captureLoop() {
+  if (!capturing) return;
+  if (ws && ws.readyState === WebSocket.OPEN && videoEl.readyState >= 2) {
+    // Draw frame to offscreen canvas
+    const oc = document.createElement('canvas');
+    oc.width  = 320; oc.height = 240;  // downscale for speed
+    oc.getContext('2d').drawImage(videoEl, 0, 0, 320, 240);
+    const b64 = oc.toDataURL('image/jpeg', 0.7).split(',')[1];
+    ws.send(JSON.stringify({ type: 'frame', data: b64 }));
+    frameCount++;
+    fpsFrames++;
+    document.getElementById('statFrames').textContent = frameCount;
+
+    // FPS
+    const now = Date.now();
+    if (now - lastFpsTime >= 1000) {
+      document.getElementById('fpsLabel').textContent = fpsFrames + ' fps';
+      fpsFrames = 0; lastFpsTime = now;
+    }
+  }
+  setTimeout(() => requestAnimationFrame(captureLoop), 150); // ~6-7 fps
+}
+
+// ── Image upload ─────────────────────────────────────────────────────────────
+fileInput.addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  stopAll();
+
+  const url = URL.createObjectURL(file);
+  uploadPreview.src = url;
+  uploadPreview.style.display = 'block';
+  placeholder.style.display   = 'none';
+  setStatus('ANALYSING', false);
+
+  const fd = new FormData();
+  fd.append('file', file);
+  try {
+    const res = await fetch(`${API}/analyze/frame`, { method: 'POST', body: fd });
+    const data = await res.json();
+    handleResult(data);
+    setStatus('DONE', false);
+  } catch(err) {
+    setStatus('ERROR', false);
+    console.error(err);
+  }
+  fileInput.value = '';
+});
+
+// ── Result handler ────────────────────────────────────────────────────────────
+function handleResult(data) {
+  const detections   = data.detections   || [];
+  const sceneCtx     = data.scene_context || {};
+  const decision     = data.decision      || {};
+  const alert        = data.alert;
+  const pipelineMs   = alert?.pipeline_ms || {};
+
+  // Stats
+  document.getElementById('statObjects').textContent = detections.length;
+  if (pipelineMs.total) {
+    document.getElementById('statLatency').textContent = pipelineMs.total;
+  }
+
+  // Pipeline nodes
+  animateNodes(pipelineMs);
+
+  // Detection chips
+  renderDetections(detections);
+
+  // Alert
+  if (alert) {
+    alertCount++;
+    document.getElementById('statAlerts').textContent = alertCount;
+    prependAlert(alert);
+    flashAlert(alert.severity);
+  }
+}
+
+function animateNodes(ms) {
+  const nodes = ['Detector','Analyser','Decider','Logger'];
+  nodes.forEach((n,i) => {
+    const el = document.getElementById('node'+n);
+    const msEl = document.getElementById('ms'+n);
+    el.classList.remove('active','done');
+    const key = n.toLowerCase();
+    if (ms[key] !== undefined) {
+      msEl.textContent = ms[key] + 'ms';
+      el.classList.add('done');
+    } else {
+      setTimeout(() => { el.classList.add('active'); }, i * 80);
+      setTimeout(() => { el.classList.remove('active'); el.classList.add('done'); }, i * 80 + 200);
+    }
+  });
+  document.getElementById('pipelineStatus').textContent = ms.total ? `${ms.total}ms total` : '';
+}
+
+function renderDetections(dets) {
+  const grid = document.getElementById('detectGrid');
+  if (!dets.length) {
+    grid.innerHTML = '<div class="no-detect">No objects detected</div>';
+    return;
+  }
+  grid.innerHTML = dets.slice(0,8).map(d =>
+    `<div class="detect-chip">
+      <span class="cls">${d.class_name}</span>
+      <span class="conf">${(d.confidence*100).toFixed(0)}%</span>
+    </div>`
+  ).join('');
+}
+
+function prependAlert(alert) {
+  const feed = document.getElementById('alertFeed');
+  // Remove empty state
+  const empty = feed.querySelector('.empty-feed');
+  if (empty) empty.remove();
+
+  const t = new Date(alert.timestamp * 1000).toLocaleTimeString();
+  const card = document.createElement('div');
+  card.className = `alert-card ${alert.severity}`;
+  card.innerHTML = `
+    <div class="alert-top">
+      <span class="alert-sev sev-${alert.severity}">${alert.severity}</span>
+      <span class="alert-time">${t}</span>
+    </div>
+    <div class="alert-desc">${alert.description}</div>
+    <div class="alert-meta">
+      ${(alert.active_rules||[]).map(r=>`<span class="alert-tag">${r}</span>`).join('')}
+      <span class="alert-tag">${alert.scene.total_objects} obj</span>
+      <span class="alert-tag">#${alert.alert_id}</span>
+    </div>`;
+  feed.insertBefore(card, feed.firstChild);
+  // Keep feed at max 100 cards
+  while (feed.children.length > 100) feed.removeChild(feed.lastChild);
+}
+
+function flashAlert(severity) {
+  alertFlash.textContent = `⚡ ${severity} ALERT`;
+  alertFlash.className   = `show ${severity}`;
+  clearTimeout(flashAlert._t);
+  flashAlert._t = setTimeout(() => alertFlash.classList.remove('show'), 2000);
+}
+
+function setStatus(text, live) {
+  statusText.textContent = text;
+  statusDot.className = 'dot' + (live ? ' live' : '');
+}
+
+document.getElementById('btnClearAlerts').addEventListener('click', async () => {
+  await fetch(`${API}/events`, { method: 'DELETE' });
+  alertFeed.innerHTML = '<div class="empty-feed">Alert feed cleared.</div>';
+  alertCount = 0;
+  document.getElementById('statAlerts').textContent = 0;
+});
+</script>
+</body>
+</html>

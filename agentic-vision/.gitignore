@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.pt
+*.egg-info/
+dist/
+build/
+.env
+venv/
+.venv/
+yolov8n.pt
